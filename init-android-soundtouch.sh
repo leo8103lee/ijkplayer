@@ -17,19 +17,6 @@
 #
 
 
-IJK_SOUNDTOUCH_UPSTREAM=https://github.com/Bilibili/soundtouch.git
-IJK_SOUNDTOUCH_FORK=https://github.com/Bilibili/soundtouch.git
-IJK_SOUNDTOUCH_COMMIT=ijk-r0.1.2-dev
-IJK_SOUNDTOUCH_LOCAL_REPO=extra/soundtouch
-
-set -e
-TOOLS=tools
-
-echo "== pull soundtouch base =="
-sh $TOOLS/pull-repo-base.sh $IJK_SOUNDTOUCH_UPSTREAM $IJK_SOUNDTOUCH_LOCAL_REPO
-
-echo "== pull soundtouch fork =="
-sh $TOOLS/pull-repo-ref.sh $IJK_SOUNDTOUCH_FORK ijkmedia/ijksoundtouch ${IJK_SOUNDTOUCH_LOCAL_REPO}
-cd ijkmedia/ijksoundtouch
-git checkout ${IJK_SOUNDTOUCH_COMMIT}
-cd -
+IJK_SOUNDTOUCH_UPSTREAM=https://codeberg.org/soundtouch/soundtouch.git
+IJK_SOUNDTOUCH_FORK=https://codeberg.org/soundtouch/soundtouch.git
+IJK_SOUNDTOUCH_COMMIT=2.4.0

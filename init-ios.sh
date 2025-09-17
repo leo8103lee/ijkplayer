@@ -16,81 +16,78 @@
 # limitations under the License.
 #
 
-# IJK_FFMPEG_UPSTREAM=git://git.videolan.org/ffmpeg.git
-IJK_FFMPEG_UPSTREAM=https://github.com/Bilibili/FFmpeg.git
-IJK_FFMPEG_FORK=https://github.com/Bilibili/FFmpeg.git
-IJK_FFMPEG_COMMIT=ff4.0--ijk0.8.8--20210426--001
+set -e
+
+# IJK_FFMPEG_UPSTREAM=https://git.ffmpeg.org/ffmpeg.git
+IJK_FFMPEG_FORK=https://git.ffmpeg.org/ffmpeg.git
+IJK_FFMPEG_COMMIT=n7.1.2
 IJK_FFMPEG_LOCAL_REPO=extra/ffmpeg
 
-IJK_GASP_UPSTREAM=https://github.com/Bilibili/gas-preprocessor.git
+# iOS architectures for FFmpeg compilation
+FF_ALL_ARCHS_IOS="armv7 arm64 i386 x86_64"
 
-# gas-preprocessor backup
-# https://github.com/Bilibili/gas-preprocessor.git
+echo "========================================"
+echo "   Initializing iOS FFmpeg Environment"
+echo "========================================"
+echo "FFmpeg Fork: $IJK_FFMPEG_FORK"
+echo "FFmpeg Commit: $IJK_FFMPEG_COMMIT"
+echo "Target Architectures: $FF_ALL_ARCHS_IOS"
+echo ""
 
-if [ "$IJK_FFMPEG_REPO_URL" != "" ]; then
-    IJK_FFMPEG_UPSTREAM=$IJK_FFMPEG_REPO_URL
-    IJK_FFMPEG_FORK=$IJK_FFMPEG_REPO_URL
+# Function to setup FFmpeg source for each architecture
+setup_ffmpeg_source() {
+    ARCH=$1
+    FF_SOURCE="ios/ffmpeg-$ARCH"
+
+    echo "--------------------"
+    echo "[*] setup FFmpeg source for $ARCH"
+    echo "--------------------"
+
+    if [ -d "$FF_SOURCE" ]; then
+        echo "FFmpeg source already exists for $ARCH, cleaning..."
+        rm -rf "$FF_SOURCE"
+    fi
+
+    # Clone FFmpeg source
+    echo "Cloning FFmpeg source to $FF_SOURCE..."
+    git clone "$IJK_FFMPEG_FORK" "$FF_SOURCE"
+
+    # Checkout specific version
+    cd "$FF_SOURCE"
+    echo "Checking out FFmpeg $IJK_FFMPEG_COMMIT..."
+    git checkout "$IJK_FFMPEG_COMMIT" -B ijkplayer
+
+    # Apply any necessary patches
+    echo "FFmpeg source ready for $ARCH"
+    cd ../..
+}
+
+# Main execution
+echo "Starting FFmpeg source setup for iOS..."
+
+# Create iOS directory if not exists
+mkdir -p ios
+
+# Setup FFmpeg source for each architecture
+for ARCH in $FF_ALL_ARCHS_IOS; do
+    setup_ffmpeg_source $ARCH
+done
+
+# Initialize OpenSSL (use our upgraded version)
+if [ -f "init-ios-openssl.sh" ]; then
+    echo ""
+    echo "========================================"
+    echo "   Initializing OpenSSL 3.5.1"
+    echo "========================================"
+    ./init-ios-openssl.sh
 fi
 
-if [ "$IJK_GASP_REPO_URL" != "" ]; then
-    IJK_GASP_UPSTREAM=$IJK_GASP_REPO_URL
-fi
-
-set -e
-TOOLS=tools
-
-FF_ALL_ARCHS_IOS6_SDK="armv7 armv7s i386"
-FF_ALL_ARCHS_IOS7_SDK="armv7 armv7s arm64 i386 x86_64"
-FF_ALL_ARCHS_IOS8_SDK="armv7 arm64 i386 x86_64"
-FF_ALL_ARCHS=$FF_ALL_ARCHS_IOS8_SDK
-FF_TARGET=$1
-
-function echo_ffmpeg_version() {
-    echo $IJK_FFMPEG_COMMIT
-}
-
-function pull_common() {
-    git --version
-    echo "== pull gas-preprocessor base =="
-    sh $TOOLS/pull-repo-base.sh $IJK_GASP_UPSTREAM extra/gas-preprocessor
-
-    echo "== pull ffmpeg base =="
-    sh $TOOLS/pull-repo-base.sh $IJK_FFMPEG_UPSTREAM $IJK_FFMPEG_LOCAL_REPO
-}
-
-function pull_fork() {
-    echo "== pull ffmpeg fork $1 =="
-    sh $TOOLS/pull-repo-ref.sh $IJK_FFMPEG_FORK ios/ffmpeg-$1 ${IJK_FFMPEG_LOCAL_REPO}
-    cd ios/ffmpeg-$1
-    git checkout ${IJK_FFMPEG_COMMIT} -B ijkplayer
-    cd -
-}
-
-function pull_fork_all() {
-    for ARCH in $FF_ALL_ARCHS
-    do
-        pull_fork $ARCH
-    done
-}
-
-function sync_ff_version() {
-    sed -i '' "s/static const char \*kIJKFFRequiredFFmpegVersion\ \=\ .*/static const char *kIJKFFRequiredFFmpegVersion = \"${IJK_FFMPEG_COMMIT}\";/g" ios/IJKMediaPlayer/IJKMediaPlayer/IJKFFMoviePlayerController.m
-}
-
-#----------
-case "$FF_TARGET" in
-    ffmpeg-version)
-        echo_ffmpeg_version
-    ;;
-    armv7|armv7s|arm64|i386|x86_64)
-        pull_common
-        pull_fork $FF_TARGET
-    ;;
-    all|*)
-        pull_common
-        pull_fork_all
-    ;;
-esac
-
-sync_ff_version
-
+echo ""
+echo "========================================"
+echo "   iOS Environment Setup Complete"
+echo "========================================"
+echo "Next steps:"
+echo "1. Configure FFmpeg modules in config/"
+echo "2. Run: cd ios && ./compile-ffmpeg.sh all"
+echo "3. Build IJKMediaPlayer framework"
+echo ""

@@ -21,12 +21,13 @@
 
 #include <assert.h>
 #include "libavformat/avformat.h"
-#include "libavformat/url.h"
+#include "libavformat/avio.h"
 #include "libavutil/avstring.h"
 #include "libavutil/log.h"
 #include "libavutil/opt.h"
 
-#include "libavutil/application.h"
+#include "../ijkavutil/ijk_application.h"  // IJK application context for FFmpeg 7.1.2
+#include "../ijkavutil/ijk_internal_compat.h"  // Internal compatibility functions
 
 typedef struct Context {
     AVClass        *class;
@@ -36,7 +37,7 @@ typedef struct Context {
     int64_t         logical_size;
     int             io_error;
 
-    AVAppIOControl  app_io_ctrl;
+    IJKAppIOControl  app_io_ctrl;
     const char     *scheme;
     const char     *inner_scheme;
 
@@ -47,7 +48,7 @@ typedef struct Context {
     int64_t         test_fail_point;
     int64_t         test_fail_point_next;
     char*         app_ctx_intptr;
-    AVApplicationContext *app_ctx;
+    IJKApplicationContext *app_ctx;
 } Context;
 
 static int ijkurlhook_call_inject(URLContext *h)
@@ -55,17 +56,17 @@ static int ijkurlhook_call_inject(URLContext *h)
     Context *c = h->priv_data;
     int ret = 0;
 
-    if (ff_check_interrupt(&h->interrupt_callback)) {
+    if (ff_check_interrupt(NULL)) {
         ret = AVERROR_EXIT;
         goto fail;
     }
 
     if (c->app_ctx) {
-        AVAppIOControl control_data_backup = c->app_io_ctrl;
+        IJKAppIOControl control_data_backup = c->app_io_ctrl;
 
         c->app_io_ctrl.is_handled = 0;
         c->app_io_ctrl.is_url_changed = 0;
-        ret = av_application_on_io_control(c->app_ctx, AVAPP_CTRL_WILL_HTTP_OPEN, &c->app_io_ctrl);
+        ret = ijk_application_on_io_control(c->app_ctx, IJK_CTRL_WILL_HTTP_OPEN, &c->app_io_ctrl);
         if (ret || !c->app_io_ctrl.url[0]) {
             ret = AVERROR_EXIT;
             goto fail;
@@ -78,7 +79,7 @@ static int ijkurlhook_call_inject(URLContext *h)
         av_log(h, AV_LOG_INFO, "%s %s (%s)\n", h->prot->name, c->app_io_ctrl.url, c->app_io_ctrl.is_url_changed ? "changed" : "remain");
     }
 
-    if (ff_check_interrupt(&h->interrupt_callback)) {
+    if (ff_check_interrupt(NULL)) {
         ret = AVERROR_EXIT;
         av_log(h, AV_LOG_ERROR, "%s %s (%s)\n", h->prot->name, c->app_io_ctrl.url, c->app_io_ctrl.is_url_changed ? "changed" : "remain");
         goto fail;
@@ -162,7 +163,7 @@ static int ijktcphook_open(URLContext *h, const char *arg, int flags, AVDictiona
     Context *c = h->priv_data;
     int ret = 0;
 
-    c->app_ctx = (AVApplicationContext *)av_dict_strtoptr(c->app_ctx_intptr);
+    c->app_ctx = (IJKApplicationContext *)av_dict_strtoptr(c->app_ctx_intptr);
     c->scheme = "ijktcphook:";
     c->inner_scheme = "tcp:";
     ret = ijkurlhook_init(h, arg, flags, options);
@@ -251,7 +252,7 @@ static int ijkhttphook_open(URLContext *h, const char *arg, int flags, AVDiction
     Context *c = h->priv_data;
     int ret = 0;
 
-    c->app_ctx = (AVApplicationContext *)av_dict_strtoptr(c->app_ctx_intptr);
+    c->app_ctx = (IJKApplicationContext *)av_dict_strtoptr(c->app_ctx_intptr);
     c->scheme = "ijkhttphook:";
     if (av_stristart(arg, "ijkhttphook:https:", NULL))
         c->inner_scheme = "https:";

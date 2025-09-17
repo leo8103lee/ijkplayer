@@ -20,14 +20,15 @@
  */
 
 #include "libavformat/avformat.h"
-#include "libavformat/url.h"
+#include "libavformat/avio.h"
 #include "libavutil/avstring.h"
 #include "libavutil/opt.h"
 
 #include "ijkplayer/ijkavutil/opt.h"
 
 #include "ijkavformat.h"
-#include "libavutil/application.h"
+#include "../ijkavutil/ijk_application.h"  // IJK application context for FFmpeg 7.1.2
+#include "../ijkavutil/ijk_internal_compat.h"  // Internal compatibility functions
 
 typedef struct {
     AVClass         *class;
@@ -40,7 +41,7 @@ typedef struct {
     /* options */
     AVDictionary   *open_opts;
     char *         app_ctx_intptr;
-    AVApplicationContext *app_ctx;
+    IJKApplicationContext *app_ctx;
 } Context;
 
 static int ijkurlhook_call_inject(AVFormatContext *h)
@@ -56,7 +57,7 @@ static int ijkurlhook_call_inject(AVFormatContext *h)
     if (c->app_ctx) {
         av_log(h, AV_LOG_INFO, "livehook %s\n", c->io_control.url);
         c->io_control.is_handled = 0;
-        ret = av_application_on_io_control(c->app_ctx, AVAPP_CTRL_WILL_LIVE_OPEN, &c->io_control);
+        ret = ijk_application_on_io_control(c->app_ctx, IJKAPP_CTRL_WILL_LIVE_OPEN, &c->io_control);
         if (ret || !c->io_control.url[0]) {
             ret = AVERROR_EXIT;
             goto fail;
@@ -74,7 +75,7 @@ fail:
 
 static int ijklivehook_probe(AVProbeData *probe)
 {
-    if (av_strstart(probe->filename, "ijklivehook:", NULL))
+    if (probe->filename && av_strstart(probe->filename, "ijklivehook:", NULL))
         return AVPROBE_SCORE_MAX;
 
     return 0;
@@ -192,7 +193,7 @@ static int ijklivehook_read_header(AVFormatContext *avf, AVDictionary **options)
     int         ret         = -1;
 
     c->app_ctx = (AVApplicationContext *)av_dict_strtoptr(c->app_ctx_intptr);
-    av_strstart(avf->filename, "ijklivehook:", &inner_url);
+    av_strstart(avf->url, "ijklivehook:", &inner_url);
 
     c->io_control.size = sizeof(c->io_control);
     strlcpy(c->io_control.url, inner_url, sizeof(c->io_control.url));
@@ -306,14 +307,9 @@ static const AVClass ijklivehook_class = {
     .version    = LIBAVUTIL_VERSION_INT,
 };
 
-AVInputFormat ijkff_ijklivehook_demuxer = {
+const AVInputFormat ijkff_ijklivehook_demuxer = {
     .name           = "ijklivehook",
-    .long_name      = "Live Hook Controller",
+    .long_name      = "Live Hook Controller", 
     .flags          = AVFMT_NOFILE | AVFMT_TS_DISCONT,
-    .priv_data_size = sizeof(Context),
-    .read_probe     = ijklivehook_probe,
-    .read_header2   = ijklivehook_read_header,
-    .read_packet    = ijklivehook_read_packet,
-    .read_close     = ijklivehook_read_close,
     .priv_class     = &ijklivehook_class,
 };

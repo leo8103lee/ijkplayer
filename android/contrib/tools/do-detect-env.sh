@@ -68,8 +68,9 @@ case "$IJK_NDK_REL" in
         IJK_NDK_REL=$(grep -o '^Pkg\.Revision.*=[0-9]*.*' $ANDROID_NDK/source.properties 2>/dev/null | sed 's/[[:space:]]*//g' | cut -d "=" -f 2)
         echo "IJK_NDK_REL=$IJK_NDK_REL"
         case "$IJK_NDK_REL" in
-            11*|12*|13*|14*)
-                if test -d ${ANDROID_NDK}/toolchains/arm-linux-androideabi-4.9
+            11*|12*|13*|14*|15*|16*|17*|18*|19*|20*|21*|22*|23*|24*|25*|26*|27*|28*|29*)
+                # Modern NDK versions use LLVM toolchain
+                if test -d ${ANDROID_NDK}/toolchains/llvm/prebuilt || test -d ${ANDROID_NDK}/toolchains/arm-linux-androideabi-4.9
                 then
                     echo "NDKr$IJK_NDK_REL detected"
                 else

@@ -21,12 +21,13 @@
 
 #include <assert.h>
 #include "libavformat/avformat.h"
-#include "libavformat/url.h"
+#include "libavformat/avio.h"
 #include "libavutil/avstring.h"
 #include "libavutil/log.h"
 #include "libavutil/opt.h"
 
-#include "libavutil/application.h"
+#include "../ijkavutil/ijk_application.h"  // IJK application context for FFmpeg 7.1.2
+#include "../ijkavutil/ijk_internal_compat.h"  // Internal compatibility functions
 
 typedef struct Context {
     AVClass        *class;
@@ -40,8 +41,8 @@ typedef struct Context {
 static int ijksegment_open(URLContext *h, const char *arg, int flags, AVDictionary **options)
 {
     Context *c = h->priv_data;
-    AVAppIOControl io_control = {0};
-    AVApplicationContext *app_ctx = (AVApplicationContext *)av_dict_strtoptr(c->app_ctx_intptr);
+    IJKAppIOControl io_control = {0}; // Now using our IJK application context
+    IJKApplicationContext *app_ctx = (IJKApplicationContext *)av_dict_strtoptr(c->app_ctx_intptr);
     int ret = -1;
     int segment_index = -1;
 
@@ -51,25 +52,34 @@ static int ijksegment_open(URLContext *h, const char *arg, int flags, AVDictiona
         return AVERROR_EXTERNAL;
 
     segment_index = (int)strtol(arg, NULL, 0);
+
+    // Initialize I/O control structure
     io_control.size = sizeof(io_control);
     io_control.segment_index = segment_index;
-    strlcpy(io_control.url,    arg,    sizeof(io_control.url));
+    strlcpy(io_control.url, arg, sizeof(io_control.url));
 
+    // If we have application context, notify about segment opening
     if (app_ctx && io_control.segment_index < 0) {
         ret = AVERROR_EXTERNAL;
         goto fail;
     }
-    ret = av_application_on_io_control(app_ctx, AVAPP_CTRL_WILL_CONCAT_SEGMENT_OPEN, &io_control);
-    if (ret || !io_control.url[0]) {
-        ret = AVERROR_EXIT;
-        goto fail;
+
+    if (app_ctx) {
+        ret = ijk_application_on_io_control(app_ctx, IJK_CTRL_WILL_CONCAT_SEGMENT_OPEN, &io_control);
+        if (ret || !io_control.url[0]) {
+            ret = AVERROR_EXIT;
+            goto fail;
+        }
     }
 
-    av_dict_set_intptr(options, "ijkapplication", (uintptr_t )app_ctx, 0);
+    // Pass application context through options for downstream protocols
+    if (app_ctx) {
+        av_dict_set_intptr(options, "ijkapplication", (uintptr_t)app_ctx, 0);
+    }
     av_dict_set_int(options, "ijkinject-segment-index", segment_index, 0);
 
     ret = ffurl_open_whitelist(&c->inner,
-                               io_control.url,
+                               io_control.url[0] ? io_control.url : arg,
                                flags,
                                &h->interrupt_callback,
                                options,

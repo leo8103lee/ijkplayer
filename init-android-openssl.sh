@@ -1,7 +1,7 @@
 #! /usr/bin/env bash
 #
-# Copyright (C) 2013-2015 Bilibili
-# Copyright (C) 2013-2015 Zhang Rui <bbcallen@gmail.com>
+# Copyright (C) 2013-2025 Bilibili
+# Copyright (C) 2013-2025 Zhang Rui <bbcallen@gmail.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,29 +16,45 @@
 # limitations under the License.
 #
 
-#IJK_OPENSSL_UPSTREAM=https://github.com/openssl/openssl
-IJK_OPENSSL_UPSTREAM=https://github.com/Bilibili/openssl.git
-IJK_OPENSSL_FORK=https://github.com/Bilibili/openssl.git
-IJK_OPENSSL_COMMIT=OpenSSL_1_0_2q
-IJK_OPENSSL_LOCAL_REPO=extra/openssl
+# This script is modified to download and extract official OpenSSL source tarball
+# instead of cloning from a git repository.
 
 set -e
-TOOLS=tools
 
-echo "== pull openssl base =="
-sh $TOOLS/pull-repo-base.sh $IJK_OPENSSL_UPSTREAM $IJK_OPENSSL_LOCAL_REPO
+OPENSSL_VERSION="3.5.1"
+OPENSSL_TARBALL="openssl-${OPENSSL_VERSION}.tar.gz"
+OPENSSL_URL="https://www.openssl.org/source/${OPENSSL_TARBALL}"
+OPENSSL_DIR="openssl-${OPENSSL_VERSION}"
+CONTRIB_DIR="android/contrib"
+TARGET_DIR_PREFIX="openssl"
 
-function pull_fork()
+# ---
+
+echo "==> Downloading OpenSSL ${OPENSSL_VERSION}"
+
+if [ ! -f "${OPENSSL_TARBALL}" ]; then
+    curl -L -O "${OPENSSL_URL}"
+fi
+
+# ---
+# Unarchive and create separate source folders for each architecture.
+# This is to avoid build conflicts when compiling for different targets.
+
+function unarchive_for_arch()
 {
-    echo "== pull openssl fork $1 =="
-    sh $TOOLS/pull-repo-ref.sh $IJK_OPENSSL_FORK android/contrib/openssl-$1 ${IJK_OPENSSL_LOCAL_REPO}
-    cd android/contrib/openssl-$1
-    git checkout ${IJK_OPENSSL_COMMIT} -B ijkplayer
-    cd -
+    local ARCH=$1
+    local TARGET_DIR="${CONTRIB_DIR}/${TARGET_DIR_PREFIX}-${ARCH}"
+
+    echo "==> Unarchiving for ${ARCH} into ${TARGET_DIR}"
+
+    rm -rf "${TARGET_DIR}"
+    mkdir -p "${TARGET_DIR}"
+    tar -xzf "${OPENSSL_TARBALL}" -C "${TARGET_DIR}" --strip-components=1
 }
 
-pull_fork "armv5"
-pull_fork "armv7a"
-pull_fork "arm64"
-pull_fork "x86"
-pull_fork "x86_64"
+unarchive_for_arch "armv7a"
+unarchive_for_arch "arm64"
+unarchive_for_arch "x86"
+unarchive_for_arch "x86_64"
+
+echo "==> OpenSSL source prepared successfully"

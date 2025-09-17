@@ -21,3 +21,7 @@
 #include "ijkiourl.h"
 
 int ijkio_alloc_url(IjkURLContext **inner, const char *url);
+int ijkio_url_alloc(IjkURLContext **inner, const char *url, int flags, void *interrupt_cb);
+int ijkio_url_read(IjkURLContext *h, unsigned char *buf, int size);
+int64_t ijkio_url_seek(IjkURLContext *h, int64_t pos, int whence);
+int ijkio_url_close(IjkURLContext *h);

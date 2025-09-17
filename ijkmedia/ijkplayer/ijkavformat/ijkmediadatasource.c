@@ -23,7 +23,7 @@
 
 #include <assert.h>
 #include "libavformat/avformat.h"
-#include "libavformat/url.h"
+#include "libavformat/avio.h"
 #include "libavutil/avstring.h"
 #include "libavutil/log.h"
 #include "libavutil/opt.h"

@@ -25,6 +25,7 @@
 #include "ijkplayer/ijkavutil/ijkutils.h"
 #include "ijkplayer/ijkavutil/ijkthreadpool.h"
 #include "ijkplayer/ijkavutil/ijkstl.h"
+#include "ijkplayer/ijkavutil/ijk_internal_compat.h"
 #include "libavutil/log.h"
 
 #include <stdint.h>
@@ -669,25 +670,25 @@ static int ijkio_cache_open(IjkURLContext *h, const char *url, int flags, IjkAVD
 
     ret = pthread_mutex_init(&c->file_mutex, NULL);
     if (ret != 0) {
-        av_log(NULL, AV_LOG_ERROR, "pthread_mutex_init failed : %s\n", av_err2str(ret));
+        av_log(NULL, AV_LOG_ERROR, "pthread_mutex_init failed : %s\n", ijk_av_err2str(ret));
         goto file_mutex_fail;
     }
 
     ret = pthread_cond_init(&c->cond_wakeup_main, NULL);
     if (ret != 0) {
-        av_log(NULL, AV_LOG_ERROR, "pthread_cond_init failed : %s\n", av_err2str(ret));
+        av_log(NULL, AV_LOG_ERROR, "pthread_cond_init failed : %s\n", ijk_av_err2str(ret));
         goto cond_wakeup_main_fail;
     }
 
     ret = pthread_cond_init(&c->cond_wakeup_file_background, NULL);
     if (ret != 0) {
-        av_log(NULL, AV_LOG_ERROR, "pthread_cond_init failed : %s\n", av_err2str(ret));
+        av_log(NULL, AV_LOG_ERROR, "pthread_cond_init failed : %s\n", ijk_av_err2str(ret));
         goto cond_wakeup_file_background_fail;
     }
 
     ret = pthread_cond_init(&c->cond_wakeup_exit, NULL);
     if (ret != 0) {
-        av_log(NULL, AV_LOG_ERROR, "pthread_cond_init failed : %s\n", av_err2str(ret));
+        av_log(NULL, AV_LOG_ERROR, "pthread_cond_init failed : %s\n", ijk_av_err2str(ret));
         goto cond_wakeup_exit_fail;
     }
 

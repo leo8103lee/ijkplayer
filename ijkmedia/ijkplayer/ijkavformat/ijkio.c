@@ -21,13 +21,14 @@
 
 #include <assert.h>
 #include "libavformat/avformat.h"
-#include "libavformat/url.h"
+#include "libavformat/avio.h"
 #include "libavutil/avstring.h"
 #include "libavutil/log.h"
 #include "libavutil/opt.h"
 
 #include "ijkiomanager.h"
 #include "ijkplayer/ijkavutil/ijkdict.h"
+#include "../ijkavutil/ijk_internal_compat.h"
 
 typedef struct Context {
     AVClass *class;

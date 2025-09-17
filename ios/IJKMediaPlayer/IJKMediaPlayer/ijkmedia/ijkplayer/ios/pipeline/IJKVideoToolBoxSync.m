@@ -25,7 +25,7 @@
 #include "ijksdl_vout_overlay_videotoolbox.h"
 #include "ffpipeline_ios.h"
 #include <mach/mach_time.h>
-#include "libavformat/avc.h"
+#include "ijkplayer/ijkavutil/ijk_internal_compat.h"
 #include "ijksdl_vout_ios_gles2.h"
 #include "h264_sps_parser.h"
 #include "ijkplayer/ff_ffplay_debug.h"
@@ -641,7 +641,9 @@ static int decode_video(Ijk_VideoToolBox_Opaque* context, AVCodecContext *avctx,
 
     if (context->ffp->vtb_handle_resolution_change &&
         context->codecpar->codec_id == AV_CODEC_ID_H264) {
-        size_data = av_packet_get_side_data(avpkt, AV_PKT_DATA_NEW_EXTRADATA, &size_data_size);
+        size_t temp_size = 0;
+        size_data = av_packet_get_side_data(avpkt, AV_PKT_DATA_NEW_EXTRADATA, &temp_size);
+        size_data_size = (int)temp_size;
         // minimum avcC(sps,pps) = 7
         if (size_data && size_data_size > 7) {
             int             got_picture = 0;

@@ -34,12 +34,12 @@
 #include "libavutil/fifo.h"
 #include "libavutil/log.h"
 #include "libavutil/opt.h"
-#include "libavutil/thread.h"
+#include "../ijkavutil/ijk_internal_compat.h"  // Threading and FIFO compatibility layer
 #include "libavutil/time.h"
-#include "libavformat/url.h"
+#include "libavformat/avio.h"
 #include <stdint.h>
 
-#include "libavutil/application.h"
+#include "../ijkavutil/ijk_application.h"  // IJK application context for FFmpeg 7.1.2
 
 #if HAVE_UNISTD_H
 #include <unistd.h>

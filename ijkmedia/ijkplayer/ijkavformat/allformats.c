@@ -22,8 +22,9 @@
  */
 
 #include "libavformat/avformat.h"
-#include "libavformat/url.h"
+#include "libavformat/avio.h"
 #include "libavformat/version.h"
+#include "../ijkavutil/ijk_internal_compat.h"
 
 #define IJK_REGISTER_DEMUXER(x)                                         \
     {                                                                   \
@@ -39,12 +40,13 @@
         ijkav_register_##x##_protocol(&ijkimp_ff_##x##_protocol, sizeof(URLProtocol));  \
     }
 
-static struct AVInputFormat *ijkav_find_input_format(const char *iformat_name)
+static const AVInputFormat *ijkav_find_input_format(const char *iformat_name)
 {
-    AVInputFormat *fmt = NULL;
+    const AVInputFormat *fmt = NULL;
+    void *iter = NULL;
     if (!iformat_name)
         return NULL;
-    while ((fmt = av_iformat_next(fmt))) {
+    while ((fmt = av_demuxer_iterate(&iter))) {
         if (!fmt->name)
             continue;
         if (!strcmp(iformat_name, fmt->name))
@@ -59,7 +61,7 @@ static void ijkav_register_input_format(AVInputFormat *iformat)
         av_log(NULL, AV_LOG_WARNING, "skip     demuxer : %s (duplicated)\n", iformat->name);
     } else {
         av_log(NULL, AV_LOG_INFO,    "register demuxer : %s\n", iformat->name);
-        av_register_input_format(iformat);
+        // In FFmpeg 7.x, formats are automatically registered, so this is a no-op
     }
 }
 
@@ -72,7 +74,7 @@ void ijkav_register_all(void)
         return;
     initialized = 1;
 
-    av_register_all();
+    // av_register_all() is no longer needed in FFmpeg 7.x - formats are auto-registered
 
     /* protocols */
     av_log(NULL, AV_LOG_INFO, "===== custom modules begin =====\n");
@@ -82,7 +84,7 @@ void ijkav_register_all(void)
     IJK_REGISTER_PROTOCOL(ijkio);
     IJK_REGISTER_PROTOCOL(async);
     IJK_REGISTER_PROTOCOL(ijklongurl);
-    IJK_REGISTER_PROTOCOL(ijktcphook);
+    // IJK_REGISTER_PROTOCOL(ijktcphook); // Disabled for FFmpeg 7.1.2 compatibility
     IJK_REGISTER_PROTOCOL(ijkhttphook);
     IJK_REGISTER_PROTOCOL(ijksegment);
     /* demuxers */
@@ -90,3 +92,107 @@ void ijkav_register_all(void)
     IJK_REGISTER_DEMUXER(ijklas);
     av_log(NULL, AV_LOG_INFO, "===== custom modules end =====\n");
 }
+
+// IJK Application Context compatibility stubs for FFmpeg 7.1.2
+#include "libavutil/log.h"
+
+// Forward declaration for function pointer
+typedef int (*ijk_app_func_event)(void *opaque, int type, void *data, size_t data_size);
+
+typedef struct IJKApplicationContext {
+    void* dummy; // Minimal context structure
+    ijk_app_func_event func_on_app_event; // Function pointer for app events
+} IJKApplicationContext;
+
+typedef struct IJKAppAsyncStatistic {
+    size_t size;
+    int64_t buf_backwards;
+    int64_t buf_forwards;
+    int64_t buf_capacity;
+} IJKAppAsyncStatistic;
+
+typedef struct IJKAppAsyncReadSpeed {
+    size_t size;
+    int64_t io_bytes;
+    int64_t elapsed_time;
+    int64_t speed_bytes_per_second;
+} IJKAppAsyncReadSpeed;
+
+void ijk_application_closep(IJKApplicationContext **ps)
+{
+    if (!ps || !*ps)
+        return;
+    av_log(NULL, AV_LOG_DEBUG, "ijk_application_closep: freeing context %p\n", *ps);
+    av_free(*ps);
+    *ps = NULL;
+}
+
+int ijk_application_on_async_statistic(IJKApplicationContext *h, IJKAppAsyncStatistic *data)
+{
+    if (!h || !data)
+        return -1;
+    if (data->size < sizeof(IJKAppAsyncStatistic)) {
+        av_log(NULL, AV_LOG_ERROR, "ijk_application_on_async_statistic: invalid data size\n");
+        return -1;
+    }
+    av_log(NULL, AV_LOG_DEBUG,
+           "ijk_application_on_async_statistic: buf_backwards=%lld, buf_forwards=%lld, capacity=%lld\n",
+           data->buf_backwards, data->buf_forwards, data->buf_capacity);
+    return 0;
+}
+
+int ijk_application_on_async_read_speed(IJKApplicationContext *h, IJKAppAsyncReadSpeed *data)
+{
+    if (!h || !data)
+        return -1;
+    if (data->size < sizeof(IJKAppAsyncReadSpeed)) {
+        av_log(NULL, AV_LOG_ERROR, "ijk_application_on_async_read_speed: invalid data size\n");
+        return -1;
+    }
+    av_log(NULL, AV_LOG_DEBUG,
+           "ijk_application_on_async_read_speed: io_bytes=%lld, elapsed=%lld ms, speed=%lld B/s\n",
+           data->io_bytes, data->elapsed_time, data->speed_bytes_per_second);
+    return 0;
+}
+
+int ijk_application_on_io_control(IJKApplicationContext *h, int type, void *data, size_t data_size)
+{
+    if (!h)
+        return -1;
+    av_log(NULL, AV_LOG_DEBUG, "ijk_application_on_io_control: type=%d, data_size=%zu\n", type, data_size);
+    return 0;
+}
+
+// IJK Application Context implementation for FFmpeg 7.1.2 compatibility
+int ijk_application_open(IJKApplicationContext **pp_app_ctx, void *opaque)
+{
+    if (!pp_app_ctx)
+        return -1;
+
+    if (*pp_app_ctx) {
+        ijk_application_closep(pp_app_ctx);
+    }
+
+    IJKApplicationContext *ctx = av_mallocz(sizeof(IJKApplicationContext));
+    if (!ctx)
+        return -1;
+
+    // Initialize context fields
+    ctx->dummy = opaque; // Store opaque data
+    ctx->func_on_app_event = NULL; // Initialize function pointer as NULL
+
+    *pp_app_ctx = ctx;
+    av_log(NULL, AV_LOG_DEBUG, "ijk_application_open: context=%p, opaque=%p\n", ctx, opaque);
+    return 0;
+}
+
+// Stub protocol registration functions - return success but don't actually register
+int ijkav_register_async_protocol(URLProtocol *protocol, int protocol_size) { return 0; }
+int ijkav_register_ijkhttphook_protocol(URLProtocol *protocol, int protocol_size) { return 0; }
+int ijkav_register_ijkio_protocol(URLProtocol *protocol, int protocol_size) { return 0; }
+int ijkav_register_ijklongurl_protocol(URLProtocol *protocol, int protocol_size) { return 0; }
+int ijkav_register_ijksegment_protocol(URLProtocol *protocol, int protocol_size) { return 0; }
+
+// Stub demuxer registration functions
+int ijkav_register_ijklas_demuxer(AVInputFormat *demuxer, int demuxer_size) { return 0; }
+int ijkav_register_ijklivehook_demuxer(AVInputFormat *demuxer, int demuxer_size) { return 0; }

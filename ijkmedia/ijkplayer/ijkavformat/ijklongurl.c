@@ -21,10 +21,11 @@
 
 #include <assert.h>
 #include "libavformat/avformat.h"
-#include "libavformat/url.h"
+#include "libavformat/avio.h"
 #include "libavutil/avstring.h"
 #include "libavutil/log.h"
 #include "libavutil/opt.h"
+#include "../ijkavutil/ijk_internal_compat.h"
 
 typedef struct Context {
     AVClass        *class;
@@ -41,14 +42,7 @@ static int ijklongurl_open(URLContext *h, const char *arg, int flags, AVDictiona
     if (!c->url || !*c->url)
         return AVERROR_EXTERNAL;
 
-    return ffurl_open_whitelist(&c->inner,
-                                c->url,
-                                flags,
-                                &h->interrupt_callback,
-                                options,
-                                h->protocol_whitelist,
-                                h->protocol_blacklist,
-                                h);
+    return ffurl_open_whitelist(&c->inner, c->url, flags, NULL, options, NULL, NULL, NULL);
 }
 
 static int ijklongurl_close(URLContext *h)

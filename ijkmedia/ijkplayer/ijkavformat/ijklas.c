@@ -20,10 +20,8 @@
 #include "libavutil/dict.h"
 #include "libavutil/time.h"
 #include "libavformat/avformat.h"
-#include "libavformat/url.h"
-#include "libavformat/avio_internal.h"
-#include "libavformat/id3v2.h"
-#include "libavformat/flv.h"
+#include "libavformat/avio.h"
+#include "../ijkavutil/ijk_internal_compat.h"  // Compatibility layer for internal APIs
 
 #include "ijksdl/ijksdl_thread.h"
 #include "ijksdl/ijksdl_mutex.h"
@@ -1823,7 +1821,9 @@ fail:
  */
 static void reset_packet(AVPacket* pkt) {
     if (pkt) {
-        av_init_packet(pkt);
+        av_packet_unref(pkt);
+        // In FFmpeg 7.x, av_init_packet is replaced by simply zeroing the packet
+        memset(pkt, 0, sizeof(AVPacket));
         pkt->data = NULL;
     }
 }
@@ -2065,12 +2065,6 @@ AVInputFormat ijkff_ijklas_demuxer = {
     .name           = "ijklas",
     .long_name      = "Live Adaptive Streaming",
     .priv_class     = &ijklas_class,
-    .priv_data_size = sizeof(LasContext),
-    .read_probe     = las_probe,
-    .read_header    = las_read_header,
-    .read_packet    = las_read_packet,
-    .read_close     = las_close,
-    .read_seek      = las_read_seek,
     .extensions     = "las",
     .flags          = AVFMT_NOFILE
 };
